@@ -23,8 +23,10 @@ COSINE_WEIGHT = 0.4
 
 # An anchor below this cosine similarity is unrelated to the query, and a
 # PageRank walk from an unrelated anchor ranks the wrong neighbourhood
-# confidently. No anchors above the floor -> no hints at all.
-MIN_ANCHOR_SIMILARITY = 0.25
+# confidently. No anchors above the floor -> no hints at all. Calibrated
+# on this repo's graph: off-topic queries topped out at 0.22, the weakest
+# genuinely on-topic anchor scored 0.34, so 0.28 centres the gap.
+MIN_ANCHOR_SIMILARITY = 0.28
 
 
 @dataclass

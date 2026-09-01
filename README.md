@@ -231,9 +231,9 @@ weights](https://singhprashant.in/writing/adaptive-ai-agents-neo4j-qwen).
 ## Acknowledgements
 
 The three-layer framing (behaviour → knowledge → weights) and the experiment
-design follow the DeepLearning.AI short course on adaptive AI agents; the
-course builds on an Oracle stack, and this lab re-implements the ideas from
-scratch on Neo4j with Qwen models throughout. In the course's benchmarks
+design follow the DeepLearning.AI short course *Building Adaptive AI Agents*
+(taught with Oracle); the course builds on an Oracle stack, and this lab
+re-implements the ideas from scratch on Neo4j with Qwen models throughout. In the course's benchmarks
 (HTTPie, Django), injecting code-knowledge-graph hints into a coding agent's
 context improved time-on-task, tool calls and tokens by roughly 10–18%.
 

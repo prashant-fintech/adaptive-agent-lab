@@ -21,6 +21,11 @@ from adaptive_agent.graph_db import run_read
 PPR_WEIGHT = 0.6
 COSINE_WEIGHT = 0.4
 
+# An anchor below this cosine similarity is unrelated to the query, and a
+# PageRank walk from an unrelated anchor ranks the wrong neighbourhood
+# confidently. No anchors above the floor -> no hints at all.
+MIN_ANCHOR_SIMILARITY = 0.25
+
 
 @dataclass
 class ScoredNode:
@@ -55,7 +60,12 @@ def humanize(node_id: str) -> str:
     return re.sub(r"[/_:.]+", " ", node_id).replace(" py", "").strip()
 
 
-def graph_search(query: str, k: int = 8, n_anchors: int = 2) -> list[ScoredNode]:
+def graph_search(
+    query: str,
+    k: int = 8,
+    n_anchors: int = 2,
+    min_anchor_similarity: float = MIN_ANCHOR_SIMILARITY,
+) -> list[ScoredNode]:
     nodes, edges = load_graph()
     if not nodes:
         return []
@@ -64,7 +74,9 @@ def graph_search(query: str, k: int = 8, n_anchors: int = 2) -> list[ScoredNode]
 
     cosines = cosine_scores(query, [humanize(node_id) for node_id in node_ids])
     anchor_order = np.argsort(cosines)[::-1][:n_anchors]
-    anchors = [node_ids[i] for i in anchor_order]
+    anchors = [node_ids[i] for i in anchor_order if cosines[i] >= min_anchor_similarity]
+    if not anchors:
+        return []
 
     ppr = personalized_pagerank(edges, anchors)
     max_ppr = max(ppr.values()) if ppr else 1.0

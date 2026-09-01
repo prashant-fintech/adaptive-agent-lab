@@ -14,6 +14,11 @@ from adaptive_agent.embeddings import cosine_scores
 from adaptive_agent.graph_db import run_read, run_write
 from adaptive_agent.skills.models import Skill
 
+# Below this cosine similarity a skill is considered unrelated to the task
+# and is NOT returned: injecting the wrong procedure into the prompt is
+# worse than injecting nothing.
+MIN_SIMILARITY = 0.30
+
 
 def parse_skill_markdown(text: str) -> Skill:
     lines = text.splitlines()
@@ -79,11 +84,15 @@ def active_skills() -> list[Skill]:
     return [_skill_from_props(row["s"]) for row in rows]
 
 
-def search(task: str, k: int = 1) -> list[tuple[Skill, float]]:
+def search(
+    task: str, k: int = 1, min_similarity: float = MIN_SIMILARITY
+) -> list[tuple[Skill, float]]:
     """Top-k active skills for a task, WITH their similarity scores.
 
     The score travels with the result on purpose: callers can log why a
-    skill was chosen, and you can eyeball weak matches.
+    skill was chosen, and you can eyeball weak matches. Matches scoring
+    below `min_similarity` are dropped entirely - an empty result means
+    "no skill applies", which callers should treat as a valid answer.
     """
     skills = active_skills()
     if not skills:
@@ -91,7 +100,7 @@ def search(task: str, k: int = 1) -> list[tuple[Skill, float]]:
     texts = [f"{s.name}. topic: {s.topic}.\n{s.procedure}" for s in skills]
     scores = cosine_scores(task, texts)
     order = np.argsort(scores)[::-1][:k]
-    return [(skills[i], float(scores[i])) for i in order]
+    return [(skills[i], float(scores[i])) for i in order if scores[i] >= min_similarity]
 
 
 def show_skill_box() -> None:

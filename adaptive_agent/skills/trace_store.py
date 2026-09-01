@@ -73,6 +73,36 @@ def fetch_episodes(topic: str) -> list[Episode]:
     return list(episodes.values())
 
 
+def record_outcome(episode_id: str, outcome: str) -> None:
+    """Append an outcome step to an already-recorded episode.
+
+    The agent records its run before anyone knows whether the answer
+    worked. Call this once you do - outcome steps are the evidence the
+    induction engine leans on hardest.
+    """
+    rows = run_read(
+        """
+        MATCH (e:Episode {id: $id})
+        OPTIONAL MATCH (e)-[r:HAS_STEP]->(:Step)
+        RETURN count(r) AS steps
+        """,
+        id=episode_id,
+    )
+    if not rows:
+        raise ValueError(f"no episode with id '{episode_id}'")
+    run_write(
+        """
+        MATCH (e:Episode {id: $id})
+        CREATE (s:Step {kind: 'outcome', content: $content})
+        CREATE (e)-[:HAS_STEP {idx: $idx}]->(s)
+        """,
+        id=episode_id,
+        content=outcome,
+        idx=rows[0]["steps"],
+    )
+    print(f"outcome recorded on {episode_id}: {outcome}")
+
+
 def topic_summary() -> list[dict]:
     return run_read(
         """

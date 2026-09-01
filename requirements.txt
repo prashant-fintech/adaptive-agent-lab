@@ -1,0 +1,13 @@
+# Core
+python-dotenv>=1.0
+neo4j>=5.20
+openai>=1.30          # client only - talks to Ollama or any OpenAI-compatible URL
+numpy>=1.26
+sentence-transformers>=3.0
+
+# Fine-tuning (layer 3)
+torch>=2.3
+transformers>=4.51    # Qwen3 support landed in 4.51
+peft>=0.11
+accelerate>=0.30
+bitsandbytes>=0.43; platform_system != "Darwin"   # 4-bit QLoRA; skip on macOS

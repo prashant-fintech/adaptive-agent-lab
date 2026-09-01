@@ -1,0 +1,55 @@
+[
+  {
+    "id": "ep-001",
+    "topic": "run_test_suite",
+    "task": "Run the project's test suite",
+    "steps": [
+      { "kind": "message", "content": "User asked to run the Python tests" },
+      { "kind": "tool_call", "content": "pytest" },
+      { "kind": "error", "content": "ModuleNotFoundError: No module named 'adaptive_agent'" },
+      { "kind": "tool_call", "content": "ls  # inspected repo layout: package at root, tests/ alongside" },
+      { "kind": "tool_call", "content": "python -m pytest" },
+      { "kind": "fix", "content": "Run `python -m pytest` from the repo root so the current directory lands on sys.path and the project package is importable" },
+      { "kind": "outcome", "content": "47 passed in 12.3s" }
+    ]
+  },
+  {
+    "id": "ep-002",
+    "topic": "run_test_suite",
+    "task": "Verify the tests still pass after refactor",
+    "steps": [
+      { "kind": "message", "content": "User asked to verify tests after a refactor" },
+      { "kind": "tool_call", "content": "pytest tests/" },
+      { "kind": "error", "content": "ModuleNotFoundError: No module named 'adaptive_agent'" },
+      { "kind": "tool_call", "content": "python -m pytest tests/" },
+      { "kind": "error", "content": "2 failed - assert cached_result is None (stale cache fixture)" },
+      { "kind": "tool_call", "content": "python -m pytest tests/ --cache-clear" },
+      { "kind": "fix", "content": "Same import error as before: bare `pytest` fails, `python -m pytest` works. Stale fixture failures cleared with --cache-clear" },
+      { "kind": "outcome", "content": "49 passed in 14.1s" }
+    ]
+  },
+  {
+    "id": "ep-003",
+    "topic": "run_test_suite",
+    "task": "Run only the retrieval tests quickly",
+    "steps": [
+      { "kind": "message", "content": "User asked for a quick run of just the retrieval tests" },
+      { "kind": "tool_call", "content": "pytest -k retrieval" },
+      { "kind": "error", "content": "ModuleNotFoundError: No module named 'adaptive_agent'" },
+      { "kind": "tool_call", "content": "python -m pytest -k retrieval -q" },
+      { "kind": "fix", "content": "Third occurrence of the same failure: always invoke pytest as `python -m pytest`; pass -k/-q through unchanged" },
+      { "kind": "outcome", "content": "8 passed, 41 deselected in 2.4s" }
+    ]
+  },
+  {
+    "id": "ep-101",
+    "topic": "code_review",
+    "task": "Review the retrieval module changes",
+    "steps": [
+      { "kind": "message", "content": "User asked for a review of the retrieval changes" },
+      { "kind": "tool_call", "content": "git diff main -- adaptive_agent/ckg/" },
+      { "kind": "message", "content": "Flagged: normalisation happens twice; suggested a single explicit stage" },
+      { "kind": "outcome", "content": "Review delivered with two findings" }
+    ]
+  }
+]

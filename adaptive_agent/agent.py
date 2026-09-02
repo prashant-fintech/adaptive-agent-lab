@@ -17,7 +17,7 @@ from adaptive_agent.ckg.retrieve import ScoredNode, graph_search
 from adaptive_agent.llm import chat
 from adaptive_agent.skills import skill_box
 from adaptive_agent.skills.models import Episode, Skill, Step
-from adaptive_agent.skills.trace_store import write_episodes
+from adaptive_agent.skills.trace_store import record_outcome, write_episodes
 
 AGENT_SYSTEM = """\
 You are a coding agent working on this repository. Follow the retrieved
@@ -93,12 +93,19 @@ def _episode_from_run(
     return Episode(id=f"run-{stamp}", topic=resolved_topic, task=task, steps=steps)
 
 
-def answer(task: str, topic: str | None = None, record: bool = True) -> str:
+def answer(
+    task: str,
+    topic: str | None = None,
+    record: bool = True,
+    outcome: str = "answer delivered – awaiting verification",
+) -> str:
     """Answer a task; unless record=False, save the run as an Episode.
 
-    The episode is filed under `topic` (default: the matched skill's topic)
-    and starts without an outcome step - once you know whether the answer
-    worked, add one with trace_store.record_outcome(episode_id, ...).
+    The episode is filed under `topic` (default: the matched skill's topic).
+    A default outcome step is recorded immediately so the induction engine
+    always has something to work with. Pass `outcome` to override it, or call
+    trace_store.record_outcome(episode_id, outcome) later to append a second
+    step once you know whether the answer actually worked.
     """
     skill_hit, hints = _retrieve(task, n_hints=6)
     system = _compose(skill_hit, hints)
@@ -107,8 +114,9 @@ def answer(task: str, topic: str | None = None, record: bool = True) -> str:
     if record:
         episode = _episode_from_run(task, topic, skill_hit, hints, reply)
         write_episodes([episode])
+        record_outcome(episode.id, outcome)
         print(
             f"[trace store] recorded {episode.id} under topic '{episode.topic}' "
-            "- add an outcome with trace_store.record_outcome"
+            f"- call trace_store.record_outcome('{episode.id}', ...) to refine the outcome"
         )
     return reply

@@ -89,14 +89,12 @@ def build() -> dict:
         edges=co_edits,
     )
 
-    counts = run_read(
-        """
-        MATCH (f:CodeFile) WITH count(f) AS files
-        MATCH (fn:CodeFunction) WITH files, count(fn) AS functions
-        MATCH ()-[r:IMPORTS|CALLS|CO_EDITED|CONTAINS]->()
-        RETURN files, functions, count(r) AS edges
-        """
-    )[0]
+    n_files = run_read("MATCH (f:CodeFile) RETURN count(f) AS n")[0]["n"]
+    n_fns = run_read("MATCH (fn:CodeFunction) RETURN count(fn) AS n")[0]["n"]
+    n_edges = run_read(
+        "MATCH ()-[r:IMPORTS|CALLS|CO_EDITED|CONTAINS]->() RETURN count(r) AS n"
+    )[0]["n"]
+    counts = {"files": n_files, "functions": n_fns, "edges": n_edges}
     print(
         f"Neo4j code graph: {counts['files']} files, {counts['functions']} functions, "
         f"{counts['edges']} edges"

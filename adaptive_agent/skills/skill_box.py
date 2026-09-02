@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 
 from adaptive_agent import config
-from adaptive_agent.embeddings import cosine_scores
+from adaptive_agent.embeddings import embed_texts
 from adaptive_agent.graph_db import run_read, run_write
 from adaptive_agent.skills.models import Skill
 
@@ -18,6 +18,20 @@ from adaptive_agent.skills.models import Skill
 # and is NOT returned: injecting the wrong procedure into the prompt is
 # worse than injecting nothing.
 MIN_SIMILARITY = 0.30
+
+
+def _skill_text(skill: Skill) -> str:
+    """Canonical text used to embed a skill. Must stay consistent with save_skill."""
+    return f"{skill.name}. topic: {skill.topic}.\n{skill.procedure}"
+
+
+def _write_embedding(name: str, version: int, vector: "np.ndarray") -> None:
+    run_write(
+        "MATCH (s:Skill {name: $name, version: $version}) SET s.embedding = $vec",
+        name=name,
+        version=version,
+        vec=vector.tolist(),
+    )
 
 
 def parse_skill_markdown(text: str) -> Skill:
@@ -54,6 +68,7 @@ def save_skill(skill: Skill) -> None:
         evidence=skill.evidence,
         review_note=skill.review_note,
     )
+    _write_embedding(skill.name, skill.version, embed_texts([_skill_text(skill)])[0])
 
 
 def seed_from_directory(directory: Path | None = None) -> list[Skill]:
@@ -89,16 +104,36 @@ def search(
 ) -> list[tuple[Skill, float]]:
     """Top-k active skills for a task, WITH their similarity scores.
 
+    Skill embeddings are cached in Neo4j by save_skill() so only the query
+    is encoded on each call. Legacy nodes without a cached embedding are
+    computed and stored on first access so subsequent calls are free.
+
     The score travels with the result on purpose: callers can log why a
     skill was chosen, and you can eyeball weak matches. Matches scoring
     below `min_similarity` are dropped entirely - an empty result means
     "no skill applies", which callers should treat as a valid answer.
     """
-    skills = active_skills()
-    if not skills:
+    rows = run_read("MATCH (s:Skill {status: 'active'}) RETURN s ORDER BY s.name")
+    if not rows:
         return []
-    texts = [f"{s.name}. topic: {s.topic}.\n{s.procedure}" for s in skills]
-    scores = cosine_scores(task, texts)
+
+    skills: list[Skill] = []
+    vectors: list[np.ndarray] = []
+    for row in rows:
+        props = row["s"]
+        skill = _skill_from_props(props)
+        cached = props.get("embedding")
+        if cached is not None:
+            vec = np.array(cached, dtype=np.float32)
+        else:
+            # Legacy node — compute once and persist so future calls are free.
+            vec = embed_texts([_skill_text(skill)])[0]
+            _write_embedding(skill.name, skill.version, vec)
+        skills.append(skill)
+        vectors.append(vec)
+
+    query_vec = embed_texts([task])[0]
+    scores: np.ndarray = np.stack(vectors) @ query_vec
     order = np.argsort(scores)[::-1][:k]
     return [(skills[i], float(scores[i])) for i in order if scores[i] >= min_similarity]
 
